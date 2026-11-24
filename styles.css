@@ -468,7 +468,7 @@ button:focus-visible {
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transition: opacity 0.45s var(--ease), visibility 0.45s var(--ease);
+    transition: opacity 0.28s var(--ease), visibility 0.28s var(--ease);
 }
 
 .poem-interlude.visible {
@@ -483,6 +483,13 @@ button:focus-visible {
     letter-spacing: 0.24em;
     text-indent: 0.24em;
     margin-bottom: 26px;
+    opacity: 0;
+    transition: opacity 0.35s var(--ease);
+}
+
+.poem-interlude.visible .poem-interlude-mood {
+    opacity: 1;
+    transition: opacity 0.5s var(--ease) 0.1s;
 }
 
 .poem-interlude-verse {
@@ -494,13 +501,14 @@ button:focus-visible {
     line-height: 2.0;
     max-width: 540px;
     opacity: 0;
-    transform: translateY(10px);
-    transition: opacity 0.65s var(--ease) 0.08s, transform 0.65s var(--ease) 0.08s;
+    transform: translateY(8px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .poem-interlude.visible .poem-interlude-verse {
     opacity: 1;
     transform: translateY(0);
+    transition: opacity 0.6s var(--ease) 0.14s, transform 0.6s var(--ease) 0.14s;
 }
 
 .poem-interlude-source {
@@ -510,11 +518,12 @@ button:focus-visible {
     letter-spacing: 0.14em;
     margin-top: 22px;
     opacity: 0;
-    transition: opacity 0.65s var(--ease) 0.24s;
+    transition: opacity 0.18s ease;
 }
 
 .poem-interlude.visible .poem-interlude-source {
     opacity: 1;
+    transition: opacity 0.55s var(--ease) 0.26s;
 }
 
 .poem-interlude-skip {
@@ -525,7 +534,13 @@ button:focus-visible {
     font-size: 11px;
     color: var(--text-faint);
     letter-spacing: 0.14em;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.poem-interlude.visible .poem-interlude-skip {
     opacity: 0.65;
+    transition: opacity 0.5s var(--ease) 0.35s;
 }
 
 /* 处方页首极轻诗引 */

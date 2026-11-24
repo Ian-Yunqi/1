@@ -405,7 +405,7 @@
                 if (state.moodIndex !== idx) selectHeroMood(idx, true);
             });
             btn.addEventListener("click", function () {
-                openPrescriptionByTags([m.word]);
+                openPrescriptionByTags([m.word], null, true);
             });
             strip.appendChild(btn);
         });
@@ -547,10 +547,10 @@
                     closeDropdown();
                     input.value = "";
                     clearBtn.classList.add("hidden");
-                    if (act === "mood") openPrescriptionByTags([btn.dataset.tag]);
-                    else if (act === "compound") openPrescriptionByTags(btn.dataset.tags.split(","));
-                    else if (act === "book") openPrescriptionById(btn.dataset.id, null);
-                    else if (act === "random") openPrescriptionByTags(["random"]);
+                    if (act === "mood") openPrescriptionByTags([btn.dataset.tag], null, true);
+                    else if (act === "compound") openPrescriptionByTags(btn.dataset.tags.split(","), null, true);
+                    else if (act === "book") openPrescriptionById(btn.dataset.id, null, false);
+                    else if (act === "random") openPrescriptionByTags(["random"], null, true);
                 });
             });
         }
@@ -649,7 +649,7 @@
             evalPos(e.clientX, e.clientY);
             if (state.starTags.length) {
                 closeStarOverlay();
-                openPrescriptionByTags(state.starTags.slice());
+                openPrescriptionByTags(state.starTags.slice(), null, true);
             }
         });
     }
@@ -738,6 +738,16 @@
             hintEl.classList.remove("hidden");
         } else {
             hintEl.classList.add("hidden");
+        }
+
+        var poem = ctx.poem || pickPoemForMood(book.tags.primary, false);
+        var epiEl = document.getElementById("render-poem-epigraph");
+        if (poem && poem.verse) {
+            epiEl.innerHTML = "「" + escapeHtml(poem.verse) + "」" +
+                (poem.source ? '<span class="rx-poem-epigraph-src">—— ' + escapeHtml(poem.source) + "</span>" : "");
+            epiEl.classList.remove("hidden");
+        } else {
+            epiEl.classList.add("hidden");
         }
 
         document.getElementById("render-id").textContent = book.id;
@@ -853,27 +863,56 @@
         } catch (e) {}
     }
 
-    function openPrescriptionById(bookId, ctx) {
+    function openPrescriptionById(bookId, ctx, withInterlude) {
         var book = getBookById(bookId);
         if (!book) { goHome(); return; }
         var context = ctx || { mode: "book", tags: [book.tags.primary], degraded: false, reason: "" };
+        var moodKey = (context.tags && context.tags.length && context.tags[0] !== "daily" && context.tags[0] !== "random")
+            ? context.tags[0]
+            : book.tags.primary;
+        if (!context.poem) {
+            context.poem = pickPoemForMood(moodKey, false);
+        }
         var p = { book: book.id };
         if (context.mode === "daily") p.tag = "daily";
         else if (context.mode === "compound") p.tags = context.tags.join(",");
         else if (context.mode === "tag" && context.tags.length === 1) p.tag = context.tags[0];
-        updateUrl(p);
-        renderDoseView(book, context);
+
+        var enter = function () {
+            updateUrl(p);
+            renderDoseView(book, context);
+        };
+
+        if (withInterlude) {
+            stopCycleTimer();
+            var label = context.mode === "daily"
+                ? "今日一味 · " + book.tags.primary
+                : (context.mode === "compound" ? context.tags.join(" · ") : moodKey);
+            playPoemInterlude(label, context.poem, enter);
+        } else {
+            enter();
+        }
     }
 
-    function openPrescriptionByTags(tagList, excludeId) {
+    function openPrescriptionByTags(tagList, excludeId, withInterlude) {
         var clean = (tagList || []).filter(Boolean);
         var res = pickBestBook(clean, excludeId);
         if (!res || !res.book) { goHome(); return; }
         var mode = clean.length > 1 ? "compound" : (clean[0] === "random" ? "random" : "tag");
-        openPrescriptionById(res.book.id, { mode: mode, tags: clean, degraded: res.degraded, reason: res.reason });
+        var moodKey = (clean.length && clean[0] !== "random") ? clean[0] : res.book.tags.primary;
+        var poem = (mode === "tag" && MOODS[state.moodIndex] && MOODS[state.moodIndex].word === moodKey)
+            ? pickPoemForMood(moodKey, true)
+            : pickPoemForMood(moodKey, false);
+        openPrescriptionById(res.book.id, {
+            mode: mode,
+            tags: clean,
+            degraded: res.degraded,
+            reason: res.reason,
+            poem: poem
+        }, !!withInterlude);
     }
 
-    function openDailyDose() {
+    function openDailyDose(withInterlude) {
         var today = getTodayIso();
         var savedId = getDailyDoseId(today);
         var book = savedId ? getBookById(savedId) : null;
@@ -882,7 +921,15 @@
             book = res.book;
             if (book) setDailyDoseId(today, book.id);
         }
-        if (book) openPrescriptionById(book.id, { mode: "daily", tags: ["daily"], degraded: false, reason: "" });
+        if (book) {
+            openPrescriptionById(book.id, {
+                mode: "daily",
+                tags: ["daily"],
+                degraded: false,
+                reason: "",
+                poem: pickPoemForMood(book.tags.primary, false)
+            }, !!withInterlude);
+        }
     }
 
     function goHome() {
@@ -1159,15 +1206,16 @@
         document.getElementById("zone-prev").addEventListener("click", function () { selectHeroMood(state.moodIndex - 1, true); });
         document.getElementById("zone-next").addEventListener("click", function () { selectHeroMood(state.moodIndex + 1, true); });
         document.getElementById("zone-enter").addEventListener("click", function () {
-            openPrescriptionByTags([MOODS[state.moodIndex].word]);
+            openPrescriptionByTags([MOODS[state.moodIndex].word], null, true);
         });
         document.getElementById("zone-enter").addEventListener("keydown", function (e) {
             if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                openPrescriptionByTags([MOODS[state.moodIndex].word]);
+                openPrescriptionByTags([MOODS[state.moodIndex].word], null, true);
             }
         });
-        document.getElementById("btn-daily-dose").addEventListener("click", openDailyDose);
+        document.getElementById("btn-daily-dose").addEventListener("click", function () { openDailyDose(true); });
+        document.getElementById("poem-interlude").addEventListener("click", dismissPoemInterlude);
 
         // Dose top bar & popover menu
         document.getElementById("btn-bookmark").addEventListener("click", function () {
@@ -1261,6 +1309,13 @@
             var tag = document.activeElement ? document.activeElement.tagName : "";
             var typing = tag === "INPUT" || tag === "TEXTAREA";
 
+            if (document.getElementById("poem-interlude").classList.contains("visible")) {
+                if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    dismissPoemInterlude();
+                }
+                return;
+            }
             if (e.key === "Escape") {
                 if (document.getElementById("card-modal-backdrop").classList.contains("open")) { closeCardModal(); return; }
                 if (document.getElementById("drawer-sheet").classList.contains("open")) { closeDrawer(); return; }
